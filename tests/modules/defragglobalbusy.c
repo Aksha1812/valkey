@@ -16,10 +16,9 @@ unsigned long long busy_calls = 0;
  * lifetime being managed by the server. */
 unsigned long long busy_fresh_starts = 0;
 
-static int defragBusyGlobal(ValkeyModuleDefragCtx *ctx) {
+static int defragBusyGlobal(ValkeyModuleDefragCtx *ctx, ValkeyModuleDefragCursor *cursor) {
     busy_calls++;
 
-    ValkeyModuleDefragCursor *cursor = ValkeyModule_DefragCursor(ctx);
     if (ValkeyModule_DefragCursorGetPosition(cursor) == 0) busy_fresh_starts++;
     ValkeyModule_DefragCursorSetPosition(cursor, busy_calls);
 

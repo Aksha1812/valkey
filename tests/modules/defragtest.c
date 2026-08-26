@@ -41,13 +41,12 @@ static void createGlobalStrings(ValkeyModuleCtx *ctx, int count)
     }
 }
 
-static int defragGlobalStrings(ValkeyModuleDefragCtx *ctx)
+static int defragGlobalStrings(ValkeyModuleDefragCtx *ctx, ValkeyModuleDefragCursor *cursor)
 {
     int steps = 0;
 
-    /* The cursor is created by the server on first use and destroyed with the pass, so the position
+    /* The server creates the cursor for each pass and destroys it with the pass, so the position
      * read here is always one this module stored during the same pass. */
-    ValkeyModuleDefragCursor *cursor = ValkeyModule_DefragCursor(ctx);
     unsigned long i = (unsigned long)ValkeyModule_DefragCursorGetPosition(cursor);
     if (i > 0) global_resumes++;
     if (i != last_set_global_cursor) global_wrong_cursor++;

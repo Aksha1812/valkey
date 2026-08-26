@@ -915,7 +915,7 @@ typedef struct ValkeyModuleAsyncRMCallPromise ValkeyModuleCallArgvBlockedHandle;
 /* Function pointers needed by both the core and modules, these needs to be
  * exposed since you can't cast a function pointer to (void *). */
 typedef void (*ValkeyModuleInfoFunc)(ValkeyModuleInfoCtx *ctx, int for_crash_report);
-typedef int (*ValkeyModuleDefragFunc)(ValkeyModuleDefragCtx *ctx);
+typedef int (*ValkeyModuleDefragFunc)(ValkeyModuleDefragCtx *ctx, ValkeyModuleDefragCursor *cursor);
 typedef void (*ValkeyModuleUserChangedFunc)(uint64_t client_id, void *privdata);
 
 /* ValkeyModule_CallArgv Flags */
@@ -2228,10 +2228,8 @@ VALKEYMODULE_API int (*ValkeyModule_DefragCursorSet)(ValkeyModuleDefragCtx *ctx,
                                                      unsigned long cursor) VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_DefragCursorGet)(ValkeyModuleDefragCtx *ctx,
                                                      unsigned long *cursor) VALKEYMODULE_ATTR;
-VALKEYMODULE_API ValkeyModuleDefragCursor *(*ValkeyModule_DefragCursor)(ValkeyModuleDefragCtx *ctx)
-    VALKEYMODULE_ATTR;
 VALKEYMODULE_API void (*ValkeyModule_DefragCursorSetPosition)(ValkeyModuleDefragCursor *cursor,
-                                                             unsigned long long position) VALKEYMODULE_ATTR;
+                                                              unsigned long long position) VALKEYMODULE_ATTR;
 VALKEYMODULE_API unsigned long long (*ValkeyModule_DefragCursorGetPosition)(ValkeyModuleDefragCursor *cursor)
     VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_GetDbIdFromDefragCtx)(ValkeyModuleDefragCtx *ctx) VALKEYMODULE_ATTR;
@@ -2684,7 +2682,6 @@ static int ValkeyModule_Init(ValkeyModuleCtx *ctx, const char *name, int ver, in
     VALKEYMODULE_GET_API(DefragShouldStop);
     VALKEYMODULE_GET_API(DefragCursorSet);
     VALKEYMODULE_GET_API(DefragCursorGet);
-    VALKEYMODULE_GET_API(DefragCursor);
     VALKEYMODULE_GET_API(DefragCursorSetPosition);
     VALKEYMODULE_GET_API(DefragCursorGetPosition);
     VALKEYMODULE_GET_API(GetKeyNameFromDefragCtx);
