@@ -14985,8 +14985,9 @@ struct ValkeyModuleDefragCtx {
     monotime endtime;
     unsigned long *cursor;
     struct serverObject *key; /* Optional name of key processed, NULL when unknown. */
-    int dbid;                    /* The dbid of the key being processed, -1 when unknown. */
-    struct ValkeyModule *module; /* Owner of the cursor, set for global defrag only. */
+    int dbid;                 /* The dbid of the key being processed, -1 when unknown. */
+    /* Owner of the cursor, set for global defrag only. */
+    struct ValkeyModule *module;
 };
 
 /* Resume state for a module's global defrag pass.
