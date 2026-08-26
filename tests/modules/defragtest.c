@@ -52,10 +52,6 @@ static int defragGlobalStrings(ValkeyModuleDefragCtx *ctx)
     if (i > 0) global_resumes++;
     if (i != last_set_global_cursor) global_wrong_cursor++;
 
-    /* Ask for the scan cursor even though this module does not scan, so that the test covers a
-     * cursor which owns a nested server resource: it must be destroyed along with the pass. */
-    if (ValkeyModule_DefragCursorScanCursor(cursor) == NULL) global_wrong_cursor++;
-
     for (; i < (unsigned long)global_strings_len; i++) {
         ValkeyModuleString *new = ValkeyModule_DefragValkeyModuleString(ctx, global_strings[i]);
         global_attempts++;

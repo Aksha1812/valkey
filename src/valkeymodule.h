@@ -2234,8 +2234,6 @@ VALKEYMODULE_API void (*ValkeyModule_DefragCursorSetPosition)(ValkeyModuleDefrag
                                                              unsigned long long position) VALKEYMODULE_ATTR;
 VALKEYMODULE_API unsigned long long (*ValkeyModule_DefragCursorGetPosition)(ValkeyModuleDefragCursor *cursor)
     VALKEYMODULE_ATTR;
-VALKEYMODULE_API ValkeyModuleScanCursor *(*ValkeyModule_DefragCursorScanCursor)(
-    ValkeyModuleDefragCursor *cursor) VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_GetDbIdFromDefragCtx)(ValkeyModuleDefragCtx *ctx) VALKEYMODULE_ATTR;
 VALKEYMODULE_API const ValkeyModuleString *(*ValkeyModule_GetKeyNameFromDefragCtx)(ValkeyModuleDefragCtx *ctx)
     VALKEYMODULE_ATTR;
@@ -2689,7 +2687,6 @@ static int ValkeyModule_Init(ValkeyModuleCtx *ctx, const char *name, int ver, in
     VALKEYMODULE_GET_API(DefragCursor);
     VALKEYMODULE_GET_API(DefragCursorSetPosition);
     VALKEYMODULE_GET_API(DefragCursorGetPosition);
-    VALKEYMODULE_GET_API(DefragCursorScanCursor);
     VALKEYMODULE_GET_API(GetKeyNameFromDefragCtx);
     VALKEYMODULE_GET_API(GetDbIdFromDefragCtx);
     VALKEYMODULE_GET_API(EventLoopAdd);

@@ -14992,28 +14992,26 @@ struct ValkeyModuleDefragCtx {
 /* Resume state for a module's global defrag pass.
  *
  * The per-key defrag cursor is a plain value, which is sufficient because the server brackets it:
- * it belongs to one key, and the server resets it when that key is finished. The global callback
- * has no such bracketing, and a position on its own is rarely enough to resume from, so this is an
- * object with a lifetime the server manages. It is created when a module first asks for it, and
- * destroyed when the pass ends, when the pass is abandoned because the defrag cycle terminated
- * abnormally, or when the module is unloaded. A module therefore keeps its resume state here rather
- * than in its own variables, and never has to detect that a previous pass was discarded: the state
- * went with it, and the next invocation starts from a freshly created cursor. */
+ * it belongs to one key, and the server resets it when that key is finished. The global callback has
+ * no such bracketing, so its cursor is an object whose lifetime the server owns instead. It is
+ * created when a module first asks for it, and destroyed when the pass ends, when the pass is
+ * abandoned because the defrag cycle terminated abnormally, or when the module is unloaded. A module
+ * therefore keeps its resume state here rather than in its own variables, and never has to detect
+ * that a previous pass was discarded: the state went with it, and the next invocation starts from a
+ * freshly created cursor.
+ *
+ * Being a type rather than a value also means fields can be added without changing any signature. */
 typedef struct ValkeyModuleDefragCursor {
-    unsigned long long position;   /* Module-defined progress marker. */
-    ValkeyModuleScanCursor *scan;  /* Keyspace scan cursor, created on demand. */
+    unsigned long long position; /* Module-defined progress marker. */
 } ValkeyModuleDefragCursor;
 
 static ValkeyModuleDefragCursor *moduleDefragCursorCreate(void) {
     ValkeyModuleDefragCursor *cursor = zmalloc(sizeof(*cursor));
     cursor->position = 0;
-    cursor->scan = NULL;
     return cursor;
 }
 
 static void moduleDefragCursorDestroy(ValkeyModuleDefragCursor *cursor) {
-    if (!cursor) return;
-    if (cursor->scan) VM_ScanCursorDestroy(cursor->scan);
     zfree(cursor);
 }
 
@@ -15126,17 +15124,6 @@ void VM_DefragCursorSetPosition(ValkeyModuleDefragCursor *cursor, unsigned long 
 /* Read back the progress marker. Zero on a freshly created cursor. */
 unsigned long long VM_DefragCursorGetPosition(ValkeyModuleDefragCursor *cursor) {
     return cursor->position;
-}
-
-/* Return a keyspace scan cursor tied to this defrag cursor, creating it on first use.
- *
- * A module that finds work by walking the keyspace needs to resume a VM_Scan() across defrag
- * invocations, which a plain progress marker cannot express. Obtaining the scan cursor from here
- * ties its lifetime to the defrag pass, so it is destroyed with the pass and the module does not
- * have to track it separately or reason about whether it still matches. */
-ValkeyModuleScanCursor *VM_DefragCursorScanCursor(ValkeyModuleDefragCursor *cursor) {
-    if (!cursor->scan) cursor->scan = VM_ScanCursorCreate();
-    return cursor->scan;
 }
 
 /* Defrag a memory allocation previously allocated by VM_Alloc, VM_Calloc, etc.
@@ -15283,10 +15270,9 @@ void moduleDefragGlobalsAbort(void) {
  * own latency via VM_DefragShouldStop().  Each module is given a persistent cursor
  * (module->defrag_cursor) to save progress with VM_DefragCursorSet() and resume on a later call.
  *
- * The cursor is also the module's "more work" signal, following the convention used elsewhere in
- * defrag: a non-zero cursor means the module wants to be called again (scan not finished, or work
- * still draining on its own threads); a zero cursor means it is done for this cycle.  A module done
- * this cycle sets defrag_done_this_cycle and is skipped until the next cycle clears it.
+ * A callback reports progress by return value, as the per-key callback does: non-zero while work
+ * remains, 0 when finished for this cycle.  A module that reports completion has its cursor released
+ * and is skipped until the next cycle clears defrag_done_this_cycle.
  *
  * When the deadline is hit mid-iteration we resume on the next call from the module after the one
  * we stopped on (defrag_module_start_idx), so a module that keeps consuming the deadline can't
@@ -15746,7 +15732,6 @@ void moduleRegisterCoreAPI(void) {
     REGISTER_API(DefragCursor);
     REGISTER_API(DefragCursorSetPosition);
     REGISTER_API(DefragCursorGetPosition);
-    REGISTER_API(DefragCursorScanCursor);
     REGISTER_API(EventLoopAdd);
     REGISTER_API(EventLoopDel);
     REGISTER_API(EventLoopAddOneShot);

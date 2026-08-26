@@ -20,12 +20,7 @@ static int defragBusyGlobal(ValkeyModuleDefragCtx *ctx) {
     busy_calls++;
 
     ValkeyModuleDefragCursor *cursor = ValkeyModule_DefragCursor(ctx);
-    if (ValkeyModule_DefragCursorGetPosition(cursor) == 0) {
-        busy_fresh_starts++;
-        /* Take a scan cursor too, so an abandoned pass leaves a nested server-owned resource that
-         * must be destroyed along with the defrag cursor. */
-        ValkeyModule_DefragCursorScanCursor(cursor);
-    }
+    if (ValkeyModule_DefragCursorGetPosition(cursor) == 0) busy_fresh_starts++;
     ValkeyModule_DefragCursorSetPosition(cursor, busy_calls);
 
     /* Burn the rest of the deadline, then report that work still remains. This models a module that

@@ -127,9 +127,9 @@ start_server {tags {"modules"} overrides {{save ""}}} {
         }
 
         test {Module defrag: unloading a module releases an outstanding cursor} {
-            # The busy module never reports completion, so it always has a cursor outstanding, and
-            # that cursor owns a scan cursor as well. Unloading it must release both rather than
-            # leak them, and must not leave the defrag stage holding a freed module.
+            # The busy module never reports completion, so it always has a cursor outstanding.
+            # Unloading it must release that cursor rather than leak it, and must not leave the
+            # defrag stage holding a freed module.
             assert {[getInfoProperty [r info defragglobalbusy_stats] \
                          defragglobalbusy_busy_calls] > 0}
 
