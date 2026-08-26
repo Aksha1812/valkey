@@ -15211,10 +15211,11 @@ static unsigned long defrag_module_start_idx = 0;
 /* Called at stage init (endtime==0) to start a new global defrag pass.  Clears each module's
  * done flag so every module is visited again, and resets the round-robin start position.
  *
- * Cursors are not cleared here.  On a normal cycle end every cursor is already 0, because the
- * stage only reports DEFRAG_DONE once no module has work left.  A cursor can only outlive a cycle
- * when that cycle was aborted, and that case is handled in moduleDefragGlobalsAbort() rather than
- * here, so a module is never handed back a position saved by an interrupted pass. */
+ * Cursors are not released here.  On a normal cycle end every cursor has already been released,
+ * because the stage only reports DEFRAG_DONE once no module has work left.  A cursor can only
+ * outlive a cycle when that cycle was aborted, and that case is handled in
+ * moduleDefragGlobalsAbort() rather than here, so a module is never handed back a position saved by
+ * an interrupted pass. */
 void moduleDefragGlobalsStart(void) {
     defrag_module_start_idx = 0;
 
