@@ -41,18 +41,20 @@ static void createGlobalStrings(ValkeyModuleCtx *ctx, int count)
     }
 }
 
-static void defragGlobalStrings(ValkeyModuleDefragCtx *ctx)
+static int defragGlobalStrings(ValkeyModuleDefragCtx *ctx)
 {
-    unsigned long i = 0;
     int steps = 0;
 
-    /* Resume from the saved cursor, validating it's what we set last time. */
-    if (ValkeyModule_DefragCursorGet(ctx, &i) == VALKEYMODULE_OK) {
-        if (i > 0) global_resumes++;
-        if (i != last_set_global_cursor) global_wrong_cursor++;
-    } else {
-        if (last_set_global_cursor != 0) global_wrong_cursor++;
-    }
+    /* The cursor is created by the server on first use and destroyed with the pass, so the position
+     * read here is always one this module stored during the same pass. */
+    ValkeyModuleDefragCursor *cursor = ValkeyModule_DefragCursor(ctx);
+    unsigned long i = (unsigned long)ValkeyModule_DefragCursorGetPosition(cursor);
+    if (i > 0) global_resumes++;
+    if (i != last_set_global_cursor) global_wrong_cursor++;
+
+    /* Ask for the scan cursor even though this module does not scan, so that the test covers a
+     * cursor which owns a nested server resource: it must be destroyed along with the pass. */
+    if (ValkeyModule_DefragCursorScanCursor(cursor) == NULL) global_wrong_cursor++;
 
     for (; i < (unsigned long)global_strings_len; i++) {
         ValkeyModuleString *new = ValkeyModule_DefragValkeyModuleString(ctx, global_strings[i]);
@@ -62,20 +64,20 @@ static void defragGlobalStrings(ValkeyModuleDefragCtx *ctx)
             global_defragged++;
         }
 
-        /* Stop after maxstep strings, or when out of time, saving progress in
-         * the cursor so the next invocation resumes here. */
+        /* Stop after maxstep strings, or when out of time, recording progress so the next
+         * invocation resumes here. */
         if ((global_maxstep && ++steps >= global_maxstep) ||
             ((i % 64 == 0) && ValkeyModule_DefragShouldStop(ctx)))
         {
-            ValkeyModule_DefragCursorSet(ctx, i + 1);
+            ValkeyModule_DefragCursorSetPosition(cursor, i + 1);
             last_set_global_cursor = i + 1;
-            return;
+            return 1; /* more work remains */
         }
     }
 
-    /* Finished: reset the cursor to 0 so core sees this module as done. */
-    ValkeyModule_DefragCursorSet(ctx, 0);
+    /* Finished: returning 0 tells the server to discard the cursor. */
     last_set_global_cursor = 0;
+    return 0;
 }
 
 static void FragInfo(ValkeyModuleInfoCtx *ctx, int for_crash_report) {
