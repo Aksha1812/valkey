@@ -15185,9 +15185,10 @@ int moduleDefragValue(robj *key, robj *value, int dbid) {
  * than a cached listNode, because a module can be unloaded between invocations. */
 static unsigned long defrag_module_start_idx = 0;
 
-/* Name of the module whose global defrag callback is executing, NULL otherwise.  Reported via INFO
- * so a stall inside a module callback can be attributed to that module. */
-static const char *defrag_current_module_name = NULL;
+/* Name of the module the global defrag stage is working on, empty when none.  Reported via INFO so a
+ * stall inside a module callback can be attributed to that module.  Held as a copy rather than a
+ * pointer to module->name, which is freed when the module is unloaded. */
+static char defrag_current_module_name[64];
 
 const char *moduleDefragCurrentModule(void) {
     return defrag_current_module_name;
@@ -15198,7 +15199,7 @@ const char *moduleDefragCurrentModule(void) {
  * reporting completion or by moduleDefragGlobalsAbort(). */
 void moduleDefragGlobalsStart(void) {
     defrag_module_start_idx = 0;
-    defrag_current_module_name = NULL;
+    defrag_current_module_name[0] = '\0';
 
     listIter li;
     listNode *ln;
@@ -15230,7 +15231,7 @@ void moduleDefragGlobalsAbort(void) {
         moduleDefragGlobalsReleaseCursor(module);
         module->defrag_done_this_cycle = 0;
     }
-    defrag_current_module_name = NULL;
+    defrag_current_module_name[0] = '\0';
 }
 
 /* Invoke each module's global defrag callback, forwarding 'endtime' so a callback can bound its own
@@ -15270,7 +15271,7 @@ int moduleDefragGlobals(monotime endtime) {
             ValkeyModuleDefragCtx defrag_ctx = {endtime, &module->defrag_cursor->position, NULL, -1};
             /* Left set after the call: a client sampling INFO only runs between invocations, so
              * clearing it here would make it permanently unobservable. */
-            defrag_current_module_name = module->name;
+            valkey_strlcpy(defrag_current_module_name, module->name, sizeof(defrag_current_module_name));
             module->defrag_cb(&defrag_ctx);
             if (module->defrag_cursor->position != 0) {
                 more_work = 1;
@@ -15286,7 +15287,7 @@ int moduleDefragGlobals(monotime endtime) {
         }
     }
     /* A full pass finished with nothing outstanding, so no module is being worked on. */
-    if (!more_work) defrag_current_module_name = NULL;
+    if (!more_work) defrag_current_module_name[0] = '\0';
     return more_work;
 }
 
