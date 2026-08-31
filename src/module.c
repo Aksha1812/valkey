@@ -15185,11 +15185,20 @@ int moduleDefragValue(robj *key, robj *value, int dbid) {
  * than a cached listNode, because a module can be unloaded between invocations. */
 static unsigned long defrag_module_start_idx = 0;
 
+/* Name of the module whose global defrag callback is executing, NULL otherwise.  Reported via INFO
+ * so a stall inside a module callback can be attributed to that module. */
+static const char *defrag_current_module_name = NULL;
+
+const char *moduleDefragCurrentModule(void) {
+    return defrag_current_module_name;
+}
+
 /* Called at stage init (endtime==0) to begin a new pass: every module is visited again, starting
  * from the head of the list.  Cursors are already released by this point, either by the callback
  * reporting completion or by moduleDefragGlobalsAbort(). */
 void moduleDefragGlobalsStart(void) {
     defrag_module_start_idx = 0;
+    defrag_current_module_name = NULL;
 
     listIter li;
     listNode *ln;
@@ -15221,6 +15230,7 @@ void moduleDefragGlobalsAbort(void) {
         moduleDefragGlobalsReleaseCursor(module);
         module->defrag_done_this_cycle = 0;
     }
+    defrag_current_module_name = NULL;
 }
 
 /* Invoke each module's global defrag callback, forwarding 'endtime' so a callback can bound its own
@@ -15258,6 +15268,9 @@ int moduleDefragGlobals(monotime endtime) {
              * saved position. */
             if (!module->defrag_cursor) module->defrag_cursor = moduleDefragCursorCreate();
             ValkeyModuleDefragCtx defrag_ctx = {endtime, &module->defrag_cursor->position, NULL, -1};
+            /* Left set after the call: a client sampling INFO only runs between invocations, so
+             * clearing it here would make it permanently unobservable. */
+            defrag_current_module_name = module->name;
             module->defrag_cb(&defrag_ctx);
             if (module->defrag_cursor->position != 0) {
                 more_work = 1;
@@ -15272,6 +15285,8 @@ int moduleDefragGlobals(monotime endtime) {
             }
         }
     }
+    /* A full pass finished with nothing outstanding, so no module is being worked on. */
+    if (!more_work) defrag_current_module_name = NULL;
     return more_work;
 }
 

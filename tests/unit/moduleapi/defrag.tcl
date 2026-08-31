@@ -103,6 +103,17 @@ start_server {tags {"modules"} overrides {{save ""}}} {
             assert {[getInfoProperty $testinfo defragtest_global_attempts] > 0}
         }
 
+        test {Module defrag: INFO attributes a stalled cycle to the stage and module} {
+            # The busy module never finishes, so the cycle parks in the module stage. Sampling INFO
+            # must name both, which is what makes a stall attributable rather than just visible.
+            wait_for_condition 50 100 {
+                [s active_defrag_stage] eq {module-globals} &&
+                [s active_defrag_module] eq {defragglobalbusy}
+            } else {
+                fail "INFO did not report the stalled stage and module"
+            }
+        }
+
         test {Module defrag: aborting a cycle discards the module cursor} {
             # The busy module stores a non-zero cursor on every invocation and never
             # finishes, so once it has run it always resumes from a saved position.

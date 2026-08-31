@@ -81,6 +81,7 @@ typedef enum {
 typedef doneStatus (*defragStageFn)(monotime endtime, void *target, void *privdata);
 
 typedef struct {
+    const char *name;       // Stage name, reported via INFO so progress can be monitored
     defragStageFn stage_fn; // The function to be invoked for the stage
     void *target;           // The target that the function will defrag
     void *privdata;         // Private data, unique to the stage function
@@ -93,6 +94,7 @@ struct DefragContext {
     long long start_defrag_hits;    // server.stat_active_defrag_hits captured at beginning of cycle
     list *remaining_stages;         // List of stages which remain to be processed
     StageDescriptor *current_stage; // The stage that's currently being processed
+    const char *stage_name;         // Name of the most recently entered stage, for INFO
 
     long long timeproc_id;      // Eventloop ID of the timerproc (or AE_DELETED_EVENT_ID)
     monotime timeproc_end_time; // Ending time of previous timerproc execution
@@ -985,8 +987,22 @@ static bool defragIsRunning(void) {
 }
 
 
-static void addDefragStage(defragStageFn stage_fn, void *target, void *privdata) {
+/* Name of the stage currently being defragged, or NULL when defrag isn't running.  Sampling this
+ * together with active_defrag_hits shows whether defrag is advancing: if both hold steady across
+ * samples, the current stage is stuck. */
+const char *activeDefragCurrentStage(void) {
+    if (!defragIsRunning()) return NULL;
+    return defrag.stage_name;
+}
+
+/* Number of stages still queued for the current cycle. */
+unsigned long activeDefragPendingStages(void) {
+    return defrag.remaining_stages ? listLength(defrag.remaining_stages) : 0;
+}
+
+static void addDefragStage(const char *name, defragStageFn stage_fn, void *target, void *privdata) {
     StageDescriptor *stage = zmalloc(sizeof(StageDescriptor));
+    stage->name = name;
     stage->stage_fn = stage_fn;
     stage->target = target;
     stage->privdata = privdata;
@@ -1011,6 +1027,7 @@ static void endDefragCycle(bool normal_termination) {
         listSetFreeMethod(defrag.remaining_stages, zfree);
     }
     defrag.timeproc_id = AE_DELETED_EVENT_ID;
+    defrag.stage_name = NULL;
 
     listRelease(defrag.remaining_stages);
     defrag.remaining_stages = NULL;
@@ -1157,6 +1174,7 @@ static long long activeDefragTimeProc(struct aeEventLoop *eventLoop, long long i
     do {
         if (!defrag.current_stage) {
             defrag.current_stage = listNodeValue(listFirst(defrag.remaining_stages));
+            defrag.stage_name = defrag.current_stage->name;
             listDelNode(defrag.remaining_stages, listFirst(defrag.remaining_stages));
             // Initialize the stage with endtime==0
             doneStatus status = defrag.current_stage->stage_fn(0, defrag.current_stage->target, defrag.current_stage->privdata);
@@ -1222,18 +1240,19 @@ static void beginDefragCycle(void) {
          * exist. */
         if (server.db[dbid] == NULL) continue;
 
-        addDefragStage(defragStageDbKeys, (void *)(uintptr_t)dbid, NULL);
-        addDefragStage(defragStageExpiresKvstore, (void *)(uintptr_t)dbid, NULL);
-        addDefragStage(defragStageKeysWithvolaItemsKvstore, (void *)(uintptr_t)dbid, NULL);
+        addDefragStage("db-keys", defragStageDbKeys, (void *)(uintptr_t)dbid, NULL);
+        addDefragStage("expires", defragStageExpiresKvstore, (void *)(uintptr_t)dbid, NULL);
+        addDefragStage("volatile-keys", defragStageKeysWithvolaItemsKvstore, (void *)(uintptr_t)dbid, NULL);
     }
 
     static getClientChannelsFnWrapper getClientPubSubChannelsFn = {getClientPubSubChannels};
     static getClientChannelsFnWrapper getClientPubSubShardChannelsFn = {getClientPubSubShardChannels};
-    addDefragStage(defragStagePubsubKvstore, server.pubsub_channels, &getClientPubSubChannelsFn);
-    addDefragStage(defragStagePubsubKvstore, server.pubsubshard_channels, &getClientPubSubShardChannelsFn);
+    addDefragStage("pubsub-channels", defragStagePubsubKvstore, server.pubsub_channels, &getClientPubSubChannelsFn);
+    addDefragStage("pubsub-shard-channels", defragStagePubsubKvstore, server.pubsubshard_channels,
+                   &getClientPubSubShardChannelsFn);
 
-    addDefragStage(defragLuaScripts, NULL, NULL);
-    addDefragStage(defragModuleGlobals, NULL, NULL);
+    addDefragStage("lua-scripts", defragLuaScripts, NULL, NULL);
+    addDefragStage("module-globals", defragModuleGlobals, NULL, NULL);
 
     defrag.current_stage = NULL;
     defrag.start_cycle = getMonotonicUs();
@@ -1297,6 +1316,14 @@ void monitorActiveDefrag(void) {
 
 void monitorActiveDefrag(void) {
     /* Not implemented yet. */
+}
+
+const char *activeDefragCurrentStage(void) {
+    return NULL;
+}
+
+unsigned long activeDefragPendingStages(void) {
+    return 0;
 }
 
 void *activeDefragAlloc(void *ptr) {

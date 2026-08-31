@@ -251,6 +251,7 @@ void moduleDefragGlobalsStart(void);
 void moduleDefragGlobalsAbort(void);
 void moduleDefragGlobalsReleaseCursor(struct ValkeyModule *module);
 int moduleDefragGlobals(monotime endtime);
+const char *moduleDefragCurrentModule(void);
 void *moduleGetHandleByName(char *modulename);
 int moduleIsModuleCommand(void *module_handle, struct serverCommand *cmd);
 void freeClientModuleData(client *c);

@@ -3544,6 +3544,8 @@ void enterExecutionUnit(int update_cached_time, long long us);
 void exitExecutionUnit(void);
 void resetServerStats(void);
 void monitorActiveDefrag(void);
+const char *activeDefragCurrentStage(void);
+unsigned long activeDefragPendingStages(void);
 void defragWhileBlocked(void);
 const char *evictPolicyToString(void);
 struct serverMemOverhead *getMemoryOverheadData(void);

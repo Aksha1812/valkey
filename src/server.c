@@ -6348,6 +6348,8 @@ sds genValkeyInfoString(dict *section_dict, int all_sections, int everything) {
         long long memory_lua = evalMemory();
         long long memory_functions = functionsMemory();
         struct serverMemOverhead *mh = getMemoryOverheadData();
+        const char *defrag_stage = activeDefragCurrentStage();
+        const char *defrag_module = moduleDefragCurrentModule();
 
         /* Peak memory is updated from time to time by serverCron() so it
          * may happen that the instantaneous value is slightly bigger than
@@ -6426,6 +6428,9 @@ sds genValkeyInfoString(dict *section_dict, int all_sections, int everything) {
                 "mem_allocator:%s\r\n", ZMALLOC_LIB,
                 "mem_overhead_db_hashtable_rehashing:%zu\r\n", mh->overhead_db_hashtable_rehashing,
                 "active_defrag_running:%d\r\n", server.active_defrag_cpu_percent,
+                "active_defrag_stage:%s\r\n", defrag_stage ? defrag_stage : "",
+                "active_defrag_stages_pending:%lu\r\n", activeDefragPendingStages(),
+                "active_defrag_module:%s\r\n", defrag_module ? defrag_module : "",
                 "lazyfree_pending_objects:%zu\r\n", lazyfreeGetPendingObjectsCount(),
                 "lazyfreed_objects:%zu\r\n", lazyfreeGetFreedObjectsCount()));
         freeMemoryOverheadData(mh);
