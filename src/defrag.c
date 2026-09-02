@@ -995,6 +995,9 @@ static void endDefragCycle(bool normal_termination) {
         // Defrag is being terminated abnormally
         aeDeleteTimeEvent(server.el, defrag.timeproc_id);
 
+        // A module global callback may be mid-pass; notify it so it can release transient state.
+        moduleDefragGlobalsAbort();
+
         if (defrag.current_stage) {
             zfree(defrag.current_stage);
             defrag.current_stage = NULL;

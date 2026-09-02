@@ -2223,6 +2223,7 @@ VALKEYMODULE_API void *(*ValkeyModule_DefragAlloc)(ValkeyModuleDefragCtx *ctx, v
 VALKEYMODULE_API ValkeyModuleString *(*ValkeyModule_DefragValkeyModuleString)(ValkeyModuleDefragCtx *ctx,
                                                                               ValkeyModuleString *str)VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_DefragShouldStop)(ValkeyModuleDefragCtx *ctx) VALKEYMODULE_ATTR;
+VALKEYMODULE_API int (*ValkeyModule_DefragAborted)(ValkeyModuleDefragCtx *ctx) VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_DefragCursorSet)(ValkeyModuleDefragCtx *ctx,
                                                      unsigned long cursor) VALKEYMODULE_ATTR;
 VALKEYMODULE_API int (*ValkeyModule_DefragCursorGet)(ValkeyModuleDefragCtx *ctx,

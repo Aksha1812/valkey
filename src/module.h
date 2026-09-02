@@ -243,6 +243,7 @@ robj *moduleTypeDupOrReply(client *c, robj *fromkey, robj *tokey, int todb, robj
 int moduleDefragValue(robj *key, robj *obj, int dbid);
 int moduleLateDefrag(robj *key, robj *value, unsigned long *cursor, monotime endtime, int dbid);
 bool moduleDefragGlobals(monotime endtime);
+void moduleDefragGlobalsAbort(void);
 void *moduleGetHandleByName(char *modulename);
 int moduleIsModuleCommand(void *module_handle, struct serverCommand *cmd);
 void freeClientModuleData(client *c);

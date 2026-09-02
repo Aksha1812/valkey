@@ -14982,6 +14982,7 @@ struct ValkeyModuleDefragCtx {
     unsigned long *cursor;
     struct serverObject *key; /* Optional name of key processed, NULL when unknown. */
     int dbid;                 /* The dbid of the key being processed, -1 when unknown. */
+    int aborted;              /* Set for a global callback's final abort notification (see VM_DefragAborted). */
 };
 
 /* Register a defrag callback for global data, i.e. anything that the module
@@ -14994,6 +14995,11 @@ struct ValkeyModuleDefragCtx {
  * The callback MUST store a cursor of 0 once it has finished. A non-zero cursor keeps the defrag
  * stage open, which prevents the cycle from completing and stops the server from defragmenting the
  * keyspace or any other module until the callback converges.
+ *
+ * If a cycle is torn down while the callback is mid-pass (a non-zero cursor is outstanding), the
+ * callback is invoked one final time with VM_DefragAborted() set so it can release any transient
+ * state it set up for the pass. A pass that runs to completion needs no such call: the callback
+ * learns it is done at the moment it stores a cursor of 0.
  */
 int VM_RegisterDefragFunc(ValkeyModuleCtx *ctx, ValkeyModuleDefragFunc cb) {
     ctx->module->defrag_cb = cb;
@@ -15019,6 +15025,14 @@ int VM_DefragShouldStop(ValkeyModuleDefragCtx *ctx) {
     return (ctx->endtime != 0 && ctx->endtime <= getMonotonicUs());
 }
 
+/* Reports whether this global defrag callback invocation is an abort notification, i.e. the cycle
+ * was torn down before the pass completed (config change, flush, shutdown, ...). When true, the
+ * callback should release any transient state it set up for the pass and return without attempting
+ * further defragmentation. Always false for the per-key data type callback. */
+int VM_DefragAborted(ValkeyModuleDefragCtx *ctx) {
+    return ctx->aborted;
+}
+
 /* Store an arbitrary cursor value for future re-use.
  *
  * A cursor is always available to the global defrag callback. For data type keys
@@ -15042,8 +15056,9 @@ int VM_DefragShouldStop(ValkeyModuleDefragCtx *ctx) {
  * fresh pass starts from, means done, and non-zero means it will be invoked
  * again. The server discards the cursor once the callback completes or the pass
  * is interrupted, so a position saved before an interruption is never handed
- * back. A flush or a database swap does not end the cycle, so within a pass a
- * module must still be able to restart when its saved position no longer applies.
+ * back; on interruption the callback is instead notified via VM_DefragAborted().
+ * A flush or a database swap does not end the cycle, so within a pass a module
+ * must still be able to restart when its saved position no longer applies.
  */
 int VM_DefragCursorSet(ValkeyModuleDefragCtx *ctx, unsigned long cursor) {
     if (!ctx->cursor) return VALKEYMODULE_ERR;
@@ -15197,6 +15212,23 @@ bool moduleDefragGlobals(monotime endtime) {
         defrag_module_cursor = 0;
     }
     return false;
+}
+
+/* A cycle was torn down before this pass finished (config change, flush, shutdown, ...). If a module
+ * was mid-pass it holds a non-zero cursor and may have transient defrag state it expected to reuse on
+ * the next invocation, so give it one final call with 'aborted' set to release that state. The resume
+ * position is then discarded; the next cycle starts fresh from the first module. */
+void moduleDefragGlobalsAbort(void) {
+    if (defrag_module_cursor != 0) {
+        listNode *ln = listIndex(modules, defrag_module_position);
+        struct ValkeyModule *module = ln ? listNodeValue(ln) : NULL;
+        if (module && module->defrag_cb) {
+            ValkeyModuleDefragCtx defrag_ctx = {0, &defrag_module_cursor, NULL, -1, 1};
+            module->defrag_cb(&defrag_ctx);
+        }
+    }
+    defrag_module_position = 0;
+    defrag_module_cursor = 0;
 }
 
 /* Returns the name of the key currently being processed.
@@ -15604,6 +15636,7 @@ void moduleRegisterCoreAPI(void) {
     REGISTER_API(DefragAlloc);
     REGISTER_API(DefragValkeyModuleString);
     REGISTER_API(DefragShouldStop);
+    REGISTER_API(DefragAborted);
     REGISTER_API(DefragCursorSet);
     REGISTER_API(DefragCursorGet);
     REGISTER_API(EventLoopAdd);
