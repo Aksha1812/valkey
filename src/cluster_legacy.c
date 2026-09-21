@@ -2337,6 +2337,7 @@ int clusterNodeRemoveReplica(clusterNode *primary, clusterNode *replica) {
             }
             primary->num_replicas--;
             if (primary->num_replicas == 0) primary->flags &= ~CLUSTER_NODE_MIGRATE_TO;
+            clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
             return C_OK;
         }
     }
@@ -2354,6 +2355,7 @@ int clusterNodeAddReplica(clusterNode *primary, clusterNode *replica) {
     primary->num_replicas++;
     qsort(primary->replicas, primary->num_replicas, sizeof(clusterNode *), clusterNodeNameComparator);
     primary->flags |= CLUSTER_NODE_MIGRATE_TO;
+    clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
     return C_OK;
 }
 
@@ -2403,6 +2405,7 @@ void clusterAddNode(clusterNode *node) {
 
     retval = dictAdd(server.cluster->nodes, sdsnewlen(node->name, CLUSTER_NAMELEN), node);
     serverAssert(retval == DICT_OK);
+    clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
 }
 
 /* Remove a node from the cluster. The function performs the high level
@@ -2447,6 +2450,8 @@ void clusterDelNode(clusterNode *delnode) {
 
     /* 4) Free the node, unlinking it from the cluster. */
     freeClusterNode(delnode);
+
+    clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
 }
 
 /* Node lookup by name */
@@ -7036,6 +7041,10 @@ void clusterBeforeSleep(void) {
          * regular ping. */
         clusterBroadcastPong(CLUSTER_BROADCAST_ALL);
     }
+
+    if (flags & CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT) {
+        moduleFireServerEvent(VALKEYMODULE_EVENT_CLUSTER_TOPOLOGY_CHANGE, 0, NULL);
+    }
 }
 
 void clusterDoBeforeSleep(int flags) {
@@ -7133,6 +7142,7 @@ int clusterAddSlot(clusterNode *n, int slot) {
     server.cluster->slots[slot] = n;
     bitmapClearBit(server.cluster->owner_not_claiming_slot, slot);
     clusterSlotStatReset(slot);
+    clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
     return C_OK;
 }
 
@@ -7153,6 +7163,7 @@ int clusterDelSlot(int slot) {
     bitmapClearBit(server.cluster->owner_not_claiming_slot, slot);
     clusterSlotStatReset(slot);
     hotkeysPurgeSlot(slot);
+    clusterDoBeforeSleep(CLUSTER_TODO_FIRE_MODULE_TOPOLOGY_EVENT);
     return C_OK;
 }
 
