@@ -424,6 +424,9 @@ void atomicSlotMigrationCallback(ValkeyModuleCtx *ctx, ValkeyModuleEvent e, uint
         case VALKEYMODULE_SUBEVENT_ATOMIC_SLOT_MIGRATION_IMPORT_COMPLETED:
             logAtomicSlotMigrationInfo(ctx, "atomic-slot-migration-import-complete", asmi);
             break;
+        case VALKEYMODULE_SUBEVENT_ATOMIC_SLOT_MIGRATION_IMPORT_OWNERSHIP_CHANGING:
+            logAtomicSlotMigrationInfo(ctx, "atomic-slot-migration-import-ownership-changing", asmi);
+            break;
         case VALKEYMODULE_SUBEVENT_ATOMIC_SLOT_MIGRATION_IMPORT_ABORTED:
             logAtomicSlotMigrationInfo(ctx, "atomic-slot-migration-import-abort", asmi);
             break;

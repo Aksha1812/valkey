@@ -464,6 +464,14 @@ tags "modules" {
             assert_equal [R 0 hooks.event_last atomic-slot-migration-import-complete-jobname] $job_name
             assert_equal [R 3 hooks.event_last atomic-slot-migration-import-complete-jobname] $job_name
             assert_equal [R 2 hooks.event_last atomic-slot-migration-export-complete-jobname] $job_name
+
+            # The ownership-changing barrier fires on the importing primary at
+            # the slot handoff. It is a primary-only step, so the replica never
+            # sees it.
+            assert_equal [R 0 hooks.event_last atomic-slot-migration-import-ownership-changing-jobname] $job_name
+            assert_equal [R 0 hooks.event_last atomic-slot-migration-import-ownership-changing-numslotranges] "1"
+            assert_equal [R 0 hooks.event_last atomic-slot-migration-import-ownership-changing-slotranges] "16383-16383"
+            assert_equal [R 3 hooks.event_last atomic-slot-migration-import-ownership-changing-jobname] ""
         }
     }
 }

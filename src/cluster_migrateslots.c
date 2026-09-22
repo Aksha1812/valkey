@@ -890,6 +890,10 @@ void performSlotImportJobFailover(slotMigrationJob *job) {
     /* 1) Force bump the epoch to facilitate propagation. */
     clusterBumpConfigEpochWithoutConsensus();
 
+    /* Give modules a synchronous barrier at the ownership handoff so they can
+     * sync their related data before we begin serving the slots as owner. */
+    fireModuleSlotMigrationEvent(job, VALKEYMODULE_SUBEVENT_ATOMIC_SLOT_MIGRATION_IMPORT_OWNERSHIP_CHANGING);
+
     /* 2) Claim all the slots in the slot migration job to myself. */
     listNode *ln;
     listIter li;
