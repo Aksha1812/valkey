@@ -310,6 +310,9 @@ void restoreCommand(client *c) {
     objectSetLRUOrLFU(obj, lfu_freq, lru_idle);
     signalModifiedKey(c, c->db, key);
     notifyKeyspaceEvent(NOTIFY_GENERIC, "restore", key, c->db->id);
+    /* Mirror the RDB-load notification so modules get one signal for every key
+     * materialized from a serialized payload, regardless of load context. */
+    moduleNotifyKeyspaceEvent(NOTIFY_LOADED, "loaded", key, c->db->id);
     addReply(c, shared.ok);
     server.dirty++;
 }
