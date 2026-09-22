@@ -19,6 +19,14 @@ tags "modules" {
             assert_equal {1 s} [r keyspace.is_key_loaded s]
         }
 
+        test {RESTORE fires the loaded key space event} {
+            r set src helloworld
+            set payload [r dump src]
+            r del restored
+            r restore restored 0 $payload
+            assert_equal {1 restored} [r keyspace.is_key_loaded restored]
+        }
+
         test {Nested multi due to RM_Call} {
             r del multi
             r del lua
